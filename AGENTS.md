@@ -32,6 +32,11 @@
 - Gemini Nano runs via ML Kit GenAI Prompt API on AICore. Only Pixel 10 Pro is a valid test target; Pixel 7 Pro lacks the model for this API. The model must be downloaded (AICore experimental enrollment) before Task 13.
 - `genai-prompt:1.0.0-beta4` / `genai-schema-compiler:1.0.0-alpha1` are beta/alpha — Task 7 Step 4 allows adapting call sites to the current API if signatures drift. Keep the ProGuard `-keep` rule for `com.autocalendar.parser.DetectedMeeting` (structured-output schema class).
 
+## Keep this file current
+
+- When you discover something during work that a future session would have to rediscover the hard way — a machine/environment quirk, a toolchain gotcha that cost you time, a command that must run in a specific order, a workflow step — append it to this file before you finish. Not trivia: only global, reusable facts another session will actually benefit from. One-off workarounds and task-specific details go in the plan/ledger, not here.
+- This file lives on both `main` and the `feat/autocalendar-mvp` worktree with identical content. After editing it, keep the two in sync (commit on one branch, then fast-forward/merge the other) so the next session sees it regardless of which checkout it opens.
+
 ## Conventions
 
 - Code, docs, and commit messages: English. Chat replies to the human: Russian.
