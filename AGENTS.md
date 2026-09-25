@@ -58,3 +58,4 @@
 - Code, docs, and commit messages: English. Chat replies to the human: Russian.
 - Package root `com.autocalendar`; `minSdk 26`, `compileSdk/targetSdk 36`, Java/Kotlin target 17.
 - Architecture: single Activity + Compose, MVVM over small interfaces (`MeetingParser`, `ParsedMeetingStore`, `CalendarLauncher`); pure-Kotlin logic is unit-tested without Android.
+- No emojis anywhere: code, UI strings, comments, docs, and commit messages may only use ASCII and typographic punctuation (e.g. arrows →, en dashes –, curly quotes).
