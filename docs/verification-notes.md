@@ -1,7 +1,7 @@
 # On-device verification notes (AutoCalendar MVP)
 
 Date: 2026-09-25
-Device: Pixel 10 Pro (serial 61060DLCH005PV), build installed via `:app:installDebug`.
+Device: Pixel 10 Pro, build installed via `:app:installDebug`.
 Unit tests before/after: 47 tests, 0 failures, 12 classes.
 
 ## Task 13 Step 3: E2E happy path

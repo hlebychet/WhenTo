@@ -2,8 +2,8 @@
 
 ## Environment (established before Task 1)
 
-- OS: Windows 11, shell pwsh. All git/gradle commands run by implementers in the worktree `D:\Documents\AIProjects\autoCAlendar\.worktrees\autocalendar-mvp` (branch `feat/autocalendar-mvp`).
-- Android SDK at `C:\Users\hlebychet\AppData\Local\Android\Sdk` (platform android-36, android-36.1; build-tools 35.0.0, 36.1.0). `local.properties` has `sdk.dir` (git-ignored).
+- OS: Windows 11, shell pwsh. All git/gradle commands run by implementers in the worktree `.worktrees/autocalendar-mvp` (branch `feat/autocalendar-mvp`).
+- Android SDK at `%LOCALAPPDATA%\Android\Sdk` (platform android-36, android-36.1; build-tools 35.0.0, 36.1.0). `local.properties` has `sdk.dir` (git-ignored).
 - System JAVA_HOME points at JDK 24/25 — too new for Gradle 8.13. **Every gradle command must first run `$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"`** (JDK 21.0.7 bundled with Android Studio). This is a mandatory part of each implementer dispatch.
 - No system `gradle` on PATH and no wrapper yet. The wrapper is bootstrapped in Task 1 (see ruling below for the exact mechanism agreed with the environment).
 - Android Studio JBR java.exe: `C:\Program Files\Android\Android Studio\jbr\bin\java.exe`.
@@ -53,7 +53,7 @@ When the free quota returns (or the human subscribes), restore the 1M set below 
 - Reviewer agent `autocalendar-reviewer` = `opencode/nemotron-3-ultra-free`.
 - Other 1M fallbacks: Muse Spark 1.2 `opencode/muse-spark-1.2`, Muse Spark 1.3 `opencode/muse-spark-1.3`, Space Bunny `opencode/space-bunny-free`.
 
-Config lives at `D:\Documents\AIProjects\autoCAlendar\opencode.json`; changes require an app restart to take effect.
+Config lives at `opencode.json`; changes require an app restart to take effect.
 
 ## Handoff note (controller change)
 
@@ -192,7 +192,7 @@ av.currentDestination?.route != Routes.CONFIRM; add BackHandler on the CONFIRM r
 
 ## Task 13: complete (on-device, commits 05dc5a2..3094e68) — all steps pass
 
-Device: Pixel 10 Pro (serial 61060DLCH005PV), 2026-09-25. Evidence: docs/verification-notes.md (committed), UI dumps in session, calendar provider row _id=769.
+Device: Pixel 10 Pro, 2026-09-25. Evidence: docs/verification-notes.md (committed), UI dumps in session, calendar provider row _id=769.
 
 - Step 1 (AICore): com.google.android.aicore present; nano-v3 model download required VPN pause (Riot VPN llc.itdev.incy) before it started flowing; re-enabled after (always-on was not set). Model verified via successful inference.
 - Step 2 (install): :app:installDebug BUILD SUCCESSFUL.
