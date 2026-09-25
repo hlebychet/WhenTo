@@ -27,7 +27,7 @@ class CalendarLauncherTest {
         
         assertEquals(Intent.ACTION_INSERT, intent.action)
         assertEquals("content://com.android.calendar/events", intent.data.toString())
-        assertEquals("Discuss mockup", intent.getStringExtra(Intent.EXTRA_TITLE))
+        assertEquals("Discuss mockup", intent.getStringExtra(CalendarContract.Events.TITLE))
         assertEquals(1_790_337_600_000L, intent.getLongExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, -1))
         assertEquals(1_790_337_600_000L + 30 * 60_000L, intent.getLongExtra(CalendarContract.EXTRA_EVENT_END_TIME, -1))
         assertEquals("Starbucks", intent.getStringExtra("eventLocation"))

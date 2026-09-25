@@ -20,7 +20,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleSharedText(intent)
+        if (savedInstanceState == null) {
+            handleSharedText(intent)
+        }
 
         setContent {
             MaterialTheme {
@@ -37,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleSharedText(intent)
     }
 
@@ -60,7 +63,7 @@ class MainActivity : ComponentActivity() {
             request = request,
             onDone = {
                 container.confirmRequest.value = null
-                finish()
+                if (request.finishOnDone) finish()
             },
         )
 
@@ -68,7 +71,7 @@ class MainActivity : ComponentActivity() {
         createHistoryViewModel(
             container = container,
             onSelect = { item ->
-                container.confirmRequest.value = ConfirmRequest(item.toDraft(), item.rawText)
+                container.confirmRequest.value = ConfirmRequest(item.toDraft(), item.rawText, finishOnDone = false)
             },
         )
 }

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 data class ConfirmRequest(
     val draft: MeetingDraft,
     val rawText: String,
+    val finishOnDone: Boolean = true,
 )
 
 class AppContainer(context: Context) {

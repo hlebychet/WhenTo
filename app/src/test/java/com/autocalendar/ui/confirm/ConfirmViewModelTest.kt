@@ -2,11 +2,8 @@ package com.autocalendar.ui.confirm
 
 import com.autocalendar.calendar.CalendarLaunchOutcome
 import com.autocalendar.calendar.CalendarLauncher
-import com.autocalendar.calendar.EventToSave
 import com.autocalendar.domain.MeetingDraft
-import com.autocalendar.domain.ParseResult
-import com.autocalendar.parser.MeetingParser
-import kotlinx.coroutines.CompletableDeferred
+import com.autocalendar.ui.userMessage
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.advanceUntilIdle
 import org.junit.Assert.assertEquals
@@ -16,16 +13,6 @@ import org.junit.Test
 import java.time.LocalDateTime
 
 class ConfirmViewModelTest {
-
-    private class FakeParser(
-        private val result: ParseResult,
-        private val gate: CompletableDeferred<Unit>? = null,
-    ) : MeetingParser {
-        override suspend fun parse(request: com.autocalendar.domain.ParseRequest): ParseResult {
-            gate?.await()
-            return result
-        }
-    }
 
     private class FakeLauncher(
         private val outcome: CalendarLaunchOutcome,
@@ -80,8 +67,25 @@ class ConfirmViewModelTest {
 
     @Test
     fun `create event saves to history on success`() = runTest {
-        // This test would require the ParsedMeetingStore integration
-        // For now, we verify the launcher is called
+        val launcher = FakeLauncher(CalendarLaunchOutcome.Success(0))
+        var savedEvent: com.autocalendar.calendar.EventToSave? = null
+        val vm = ConfirmViewModel(launcher, { savedEvent = it }, this)
+
+        vm.onDraftReady(
+            MeetingDraft("Discuss mockup", LocalDateTime.of(2026, 9, 25, 15, 0), 30, "Starbucks"),
+            "raw text",
+        )
+        val expectedBegin = vm.startMillis.value
+
+        vm.onCreateClick()
+        advanceUntilIdle()
+
+        assertNotNull(savedEvent)
+        val saved = savedEvent!!
+        assertEquals("Discuss mockup", saved.title)
+        assertEquals(expectedBegin, saved.beginMillis)
+        assertEquals((expectedBegin ?: 0L) + 30 * 60_000L, requireNotNull(saved.endMillis))
+        assertEquals("Starbucks", saved.location)
     }
 
     @Test
@@ -99,7 +103,7 @@ class ConfirmViewModelTest {
         vm.onCreateClick()
         advanceUntilIdle()
 
-        assertEquals(com.autocalendar.calendar.LaunchFailureReason.NO_CALENDAR_APP.name, vm.error.value)
+        assertEquals(com.autocalendar.calendar.LaunchFailureReason.NO_CALENDAR_APP.userMessage(), vm.error.value)
     }
 
     @Test

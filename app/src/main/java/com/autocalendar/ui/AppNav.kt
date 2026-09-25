@@ -107,15 +107,20 @@ fun createConfirmViewModel(
         launcher = container.launcher,
         onEventSaved = { event ->
             container.appScope.launch {
-                container.store.add(
-                    NewParsedMeeting(
-                        rawText = request.rawText,
-                        title = event.title,
-                        startMillis = event.beginMillis,
-                        endMillis = event.endMillis,
-                        location = event.location,
-                    ),
-                )
+                try {
+                    container.store.add(
+                        NewParsedMeeting(
+                            rawText = request.rawText,
+                            title = event.title,
+                            startMillis = event.beginMillis,
+                            endMillis = event.endMillis,
+                            location = event.location,
+                        ),
+                    )
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                }
             }
             onDone()
         },

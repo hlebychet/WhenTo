@@ -7,6 +7,7 @@ import com.autocalendar.domain.ParseFailureReason
 import com.autocalendar.domain.ParseRequest
 import com.autocalendar.domain.ParseResult
 import com.autocalendar.parser.MeetingParser
+import com.autocalendar.ui.userMessage
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,7 +45,7 @@ class MainViewModel(
         val rawText = _text.value
         val failure = validator(rawText)
         if (failure != null) {
-            _error.value = failure.reason.name
+            _error.value = failure.reason.userMessage()
             return
         }
 
@@ -57,7 +58,7 @@ class MainViewModel(
             _isLoading.value = false
             when (result) {
                 is ParseResult.Success -> onDraftReady(result.meeting, rawText)
-                is ParseResult.Failure -> _error.value = result.reason.name
+                is ParseResult.Failure -> _error.value = result.reason.userMessage()
             }
         }
     }

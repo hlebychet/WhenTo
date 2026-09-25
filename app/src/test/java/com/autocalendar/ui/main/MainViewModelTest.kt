@@ -6,6 +6,7 @@ import com.autocalendar.domain.ParseRequest
 import com.autocalendar.domain.ParseResult
 import com.autocalendar.parser.MeetingParser
 import com.autocalendar.parser.MeetingTextValidator
+import com.autocalendar.ui.userMessage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
@@ -66,7 +67,7 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, parser.calls)
-        assertEquals(ParseFailureReason.EMPTY_TEXT.name, vm.error.value)
+        assertEquals(ParseFailureReason.EMPTY_TEXT.userMessage(), vm.error.value)
     }
 
     @Test
@@ -79,7 +80,7 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, parser.calls)
-        assertEquals(ParseFailureReason.TOO_SHORT_TEXT.name, vm.error.value)
+        assertEquals(ParseFailureReason.TOO_SHORT_TEXT.userMessage(), vm.error.value)
     }
 
     @Test

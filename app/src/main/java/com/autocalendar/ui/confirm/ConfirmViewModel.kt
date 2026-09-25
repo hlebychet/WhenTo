@@ -3,17 +3,12 @@ package com.autocalendar.ui.confirm
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.autocalendar.calendar.CalendarLauncher
-import com.autocalendar.calendar.CalendarLaunchOutcome
-import com.autocalendar.calendar.EventToSave
-import com.autocalendar.calendar.LaunchFailureReason
-import com.autocalendar.data.ParsedMeetingStore
 import com.autocalendar.domain.MeetingDraft
+import com.autocalendar.ui.userMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-
-typealias TextValidator = (String) -> com.autocalendar.domain.ParseResult.Failure?
 
 class ConfirmViewModel(
     private val launcher: CalendarLauncher,
@@ -56,7 +51,11 @@ class ConfirmViewModel(
     }
 
     fun onCreateClick() {
-        val title = _title.value ?: return
+        val title = _title.value
+        if (title.isNullOrBlank()) {
+            _error.value = "Title cannot be empty"
+            return
+        }
         val startMillis = _startMillis.value ?: return
         
         val event = com.autocalendar.calendar.EventToSave(
@@ -73,7 +72,7 @@ class ConfirmViewModel(
                 clear()
             }
             is com.autocalendar.calendar.CalendarLaunchOutcome.Failure -> {
-                _error.value = outcome.reason.name
+                _error.value = outcome.reason.userMessage()
             }
         }
     }

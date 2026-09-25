@@ -5,6 +5,7 @@ import com.autocalendar.domain.ParseRequest
 import com.autocalendar.domain.ParseResult
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 class GeminiNanoParser(
@@ -16,9 +17,9 @@ class GeminiNanoParser(
     override suspend fun parse(request: ParseRequest): ParseResult {
         val status = model.checkStatus()
         when (status) {
-            0 -> return ParseResult.Failure(ParseFailureReason.NANO_UNAVAILABLE)
-            1 -> model.download().collect { }
-            2, 3 -> Unit
+            STATUS_UNAVAILABLE -> return ParseResult.Failure(ParseFailureReason.NANO_UNAVAILABLE)
+            STATUS_NEEDS_DOWNLOAD -> model.download().collect { }
+            STATUS_DOWNLOADED, STATUS_AVAILABLE -> Unit
             else -> Unit
         }
 
@@ -27,6 +28,7 @@ class GeminiNanoParser(
             try {
                 return runExtraction(request)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 if (isQuotaError(e) && attempt < maxQuotaRetries) {
                     attempt++
                     delay(1_000L * attempt)
@@ -38,8 +40,6 @@ class GeminiNanoParser(
     }
 
     private suspend fun runExtraction(request: ParseRequest): ParseResult {
-        val prompt = PromptFactory.build(request.rawText, request.today)
-
         val detected = plainJsonExtraction(request)
 
         if (detected == null) {
@@ -54,19 +54,8 @@ class GeminiNanoParser(
 
     private suspend fun plainJsonExtraction(request: ParseRequest): DetectedMeeting? {
         val prompt = PromptFactory.build(request.rawText, request.today)
-        val response = model.generateContent(prompt) ?: return null
-        // Try multiple ways to extract text from response
-        val text = when (response) {
-            is String -> response
-            else -> try {
-                // Try to get text via reflection or toString
-                response.javaClass.getMethod("text").invoke(response) as? String
-                    ?: response.javaClass.getMethod("toString").invoke(response) as? String
-                    ?: return null
-            } catch (e: Exception) {
-                return null
-            }
-        }
+        val response = model.generateContent(prompt)
+        val text = response.candidates.firstOrNull()?.text ?: return null
         return PlainDetectedMeetingAdapter.fromJson(text)
     }
 
@@ -75,5 +64,12 @@ class GeminiNanoParser(
         return msg.contains("BUSY", ignoreCase = true) ||
             msg.contains("QUOTA", ignoreCase = true) ||
             msg.contains("BATTERY", ignoreCase = true)
+    }
+
+    private companion object {
+        const val STATUS_UNAVAILABLE = 0
+        const val STATUS_NEEDS_DOWNLOAD = 1
+        const val STATUS_DOWNLOADED = 2
+        const val STATUS_AVAILABLE = 3
     }
 }
