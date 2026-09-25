@@ -38,10 +38,17 @@ jobs:
           "$CMDT/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;36.1.0" > /dev/null
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
 
       - name: Build release APK
         run: chmod +x gradlew && ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Delete stale release for this tag
+        shell: bash
+        run: |
+          gh release delete "$GITHUB_REF_NAME" --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
 
       - name: Prepare release notes
         shell: bash
@@ -72,7 +79,7 @@ jobs:
           cp app/build/outputs/apk/release/*.apk WhenTo-v${VERSION}-release.apk
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: WhenTo ${{ github.ref_name }}
           body_path: release-notes.md
