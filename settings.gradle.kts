@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AutoCalendar"
+rootProject.name = "WhenTo"
 include(":app")

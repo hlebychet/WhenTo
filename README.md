@@ -1,4 +1,4 @@
-# AutoCalendar
+# WhenTo
 
 Local-first Android app that extracts a meeting from a messenger message you
 share with it, shows the result for confirmation, and creates a calendar
@@ -9,7 +9,7 @@ AICore) — no network, no cloud, no text leaves the device.
 
 1. You share one or more selected messages from a messenger ("Let's meet to
    discuss the mockup, on Thursday at 15:00 at Starbucks", a two-line chat
-   excerpt, etc.) into AutoCalendar.
+   excerpt, etc.) into WhenTo.
 2. The app parses the text locally and fills a confirmation screen: title,
    date, time, duration, location.
 3. You review and tap "Create event" — the system calendar opens with the
