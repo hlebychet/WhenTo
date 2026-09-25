@@ -48,6 +48,8 @@
 - The phone stays with the human during development — don't run device steps (install/logcat/verify) until Task 13 and the human confirms the Pixel 10 Pro is connected. Tasks 1–12 run headless (JVM unit tests only).
 - `genai-prompt:1.0.0-beta4` / `genai-schema-compiler:1.0.0-alpha1` are beta/alpha — Task 7 Step 4 allows adapting call sites to the current API if signatures drift. Keep the ProGuard `-keep` rule for `com.autocalendar.parser.DetectedMeeting` (structured-output schema class).
 - To verify the ML Kit beta API surface headlessly, `javap` the real AAR from the gradle cache: `Get-ChildItem ~\.gradle\caches -Recurse -Filter "genai-prompt-1.0.0-beta4.aar"`, `Expand-Archive`, then `javap -cp classes.jar <class>`. In beta4 `generateContent(prompt: String)` returns `GenerateContentResponse` (not a String) with `getCandidates()`; text comes from `Candidate.getText()` — any reflection-based response extraction will silently fail at runtime.
+- The nano-v3 model's `download()` can sit idle while AICore waits: the download only started flowing here after the phone's corporate VPN (Riot VPN, `llc.itdev.incy`) was paused via `pm disable-user --user 0 <pkg>` (restore with `pm enable <pkg>`; always-on VPN was not set on this device). The model also resolves relative dates unreliably (`next Friday` came back as a fixed wrong Wednesday in RU and EN) — MVP defends with `NextWeekdayDateCorrector`, a deterministic ISO-week+1 pass.
+- Kotlin `Regex` `\b`/`\w` are ASCII-only — they do not treat Cyrillic as word characters, so markers like "следующ…" must be matched with `[а-яё]+` token scans, not `\b`+`\w`. Mirror `NextWeekdayDateCorrector.russianWeekdays()`.
 
 ## Keep this file current
 
