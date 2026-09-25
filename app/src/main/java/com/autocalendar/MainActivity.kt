@@ -5,7 +5,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
+import com.autocalendar.calendar.CalendarLaunchOutcome
+import com.autocalendar.calendar.EventTimes
+import com.autocalendar.calendar.EventToSave
+import com.autocalendar.data.NewParsedMeeting
 import com.autocalendar.data.toDraft
+import com.autocalendar.domain.MeetingDraft
 import com.autocalendar.ui.AppNav
 import com.autocalendar.ui.confirm.ConfirmViewModel
 import com.autocalendar.ui.createConfirmViewModel
@@ -13,6 +18,8 @@ import com.autocalendar.ui.createHistoryViewModel
 import com.autocalendar.ui.createMainViewModel
 import com.autocalendar.ui.history.HistoryViewModel
 import com.autocalendar.ui.main.MainViewModel
+import java.time.ZoneId
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -53,7 +60,7 @@ class MainActivity : ComponentActivity() {
         createMainViewModel(
             parser = container.parser,
             onDraftReady = { draft, rawText ->
-                container.confirmRequest.value = ConfirmRequest(draft, rawText)
+                launchEditedCalendar(draft, rawText, finishOnDone = true)
             },
         )
 
@@ -71,7 +78,45 @@ class MainActivity : ComponentActivity() {
         createHistoryViewModel(
             container = container,
             onSelect = { item ->
-                container.confirmRequest.value = ConfirmRequest(item.toDraft(), item.rawText, finishOnDone = false)
+                launchEditedCalendar(item.toDraft(), item.rawText, finishOnDone = false)
             },
         )
+
+    private fun launchEditedCalendar(draft: MeetingDraft, rawText: String, finishOnDone: Boolean) {
+        val beginMillis = EventTimes.beginMillis(draft.startDateTime, ZoneId.systemDefault())
+        val event = EventToSave(
+            title = draft.title,
+            beginMillis = beginMillis,
+            endMillis = draft.durationMinutes?.let { beginMillis + it * 60_000L },
+            location = null,
+        )
+        when (val outcome = container.launcher.launch(event)) {
+            is CalendarLaunchOutcome.Success -> {
+                recordHistory(rawText, event)
+                if (finishOnDone) finish()
+            }
+            is CalendarLaunchOutcome.Failure -> {
+                container.confirmRequest.value = ConfirmRequest(draft, rawText, finishOnDone)
+            }
+        }
+    }
+
+    private fun recordHistory(rawText: String, event: EventToSave) {
+        container.appScope.launch {
+            try {
+                container.store.add(
+                    NewParsedMeeting(
+                        rawText = rawText,
+                        title = event.title,
+                        startMillis = event.beginMillis,
+                        endMillis = event.endMillis,
+                        location = event.location,
+                    ),
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+            }
+        }
+    }
 }

@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
 class CalendarLauncherTest {
 
     @Test
-    fun `builds intent with all fields`() {
+    fun `builds intent with core fields and omits location`() {
         val event = EventToSave(
             title = "Discuss mockup",
             beginMillis = 1_790_337_600_000L,
@@ -30,7 +30,7 @@ class CalendarLauncherTest {
         assertEquals("Discuss mockup", intent.getStringExtra(CalendarContract.Events.TITLE))
         assertEquals(1_790_337_600_000L, intent.getLongExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, -1))
         assertEquals(1_790_337_600_000L + 30 * 60_000L, intent.getLongExtra(CalendarContract.EXTRA_EVENT_END_TIME, -1))
-        assertEquals("Starbucks", intent.getStringExtra("eventLocation"))
+        assertNull(intent.getStringExtra("eventLocation"))
     }
 
     @Test

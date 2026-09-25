@@ -17,7 +17,8 @@ object CalendarIntentBuilder {
         intent.putExtra(CalendarContract.Events.TITLE, event.title)
         intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, event.beginMillis)
         event.endMillis?.let { intent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, it) }
-        event.location?.let { intent.putExtra("eventLocation", it) }
+        // event.location?.let { intent.putExtra("eventLocation", it) }
+        // location disabled for MVP; restore by uncommenting (see docs/disabled-features.md)
         return intent
     }
 }
