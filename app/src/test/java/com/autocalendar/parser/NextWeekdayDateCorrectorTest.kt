@@ -45,16 +45,55 @@ class NextWeekdayDateCorrectorTest {
     }
 
     @Test
-    fun `plain weekday without next marker is left to the model`() {
+    fun `bare english weekday resolves to nearest upcoming occurrence`() {
         val todayFriday = LocalDate.of(2026, 9, 25)
-        assertNull(NextWeekdayDateCorrector.resolve("Meeting on friday", todayFriday))
-        assertNull(NextWeekdayDateCorrector.resolve("Встреча в четверг в 15:00", todayFriday))
+        assertEquals(
+            LocalDate.of(2026, 9, 25),
+            NextWeekdayDateCorrector.resolve("Meeting on friday", todayFriday),
+        )
+        assertEquals(
+            LocalDate.of(2026, 9, 26),
+            NextWeekdayDateCorrector.resolve("Call on Saturday at 12", todayFriday),
+        )
+        assertEquals(
+            LocalDate.of(2026, 10, 2),
+            NextWeekdayDateCorrector.resolve("Let's sync on friday", LocalDate.of(2026, 9, 26)),
+        )
     }
 
     @Test
-    fun `multiple next weekdays are ambiguous and not corrected`() {
+    fun `bare russian weekday and abbreviations resolve to nearest upcoming occurrence`() {
+        assertEquals(
+            LocalDate.of(2026, 9, 26),
+            NextWeekdayDateCorrector.resolve("Сб пока записал\n\nВ 15:00", LocalDate.of(2026, 9, 26)),
+        )
+        assertEquals(
+            LocalDate.of(2026, 10, 1),
+            NextWeekdayDateCorrector.resolve("Встреча в четверг в 15:00", LocalDate.of(2026, 9, 25)),
+        )
+        assertEquals(
+            LocalDate.of(2026, 9, 29),
+            NextWeekdayDateCorrector.resolve("созвон во вт в 12", LocalDate.of(2026, 9, 26)),
+        )
+        assertEquals(
+            LocalDate.of(2026, 9, 27),
+            NextWeekdayDateCorrector.resolve("напомни вс в 10 утра", LocalDate.of(2026, 9, 27)),
+        )
+    }
+
+    @Test
+    fun `explicit calendar date leaves bare weekday to the model`() {
+        val todayFriday = LocalDate.of(2026, 9, 25)
+        assertNull(NextWeekdayDateCorrector.resolve("встреча в субботу 03.10", todayFriday))
+        assertNull(NextWeekdayDateCorrector.resolve("пятница 28 сентября в 11", todayFriday))
+        assertNull(NextWeekdayDateCorrector.resolve("Meeting on Friday 2026-10-02", todayFriday))
+    }
+
+    @Test
+    fun `multiple weekdays are ambiguous and not corrected`() {
         val todayFriday = LocalDate.of(2026, 9, 25)
         assertNull(NextWeekdayDateCorrector.resolve("Next Friday or next Monday", todayFriday))
+        assertNull(NextWeekdayDateCorrector.resolve("работаю пн и ср", todayFriday))
     }
 
     @Test
