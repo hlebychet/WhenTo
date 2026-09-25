@@ -1,5 +1,6 @@
 package com.autocalendar.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,7 +43,7 @@ fun AppNav(
     val request by confirmRequest.collectAsState()
 
     LaunchedEffect(request) {
-        if (request != null) {
+        if (request != null && nav.currentDestination?.route != Routes.CONFIRM) {
             nav.navigate(Routes.CONFIRM)
         }
     }
@@ -67,6 +68,10 @@ fun AppNav(
             val current = request
             if (current != null) {
                 val viewModel = remember(current) { createConfirm(current) }
+                BackHandler {
+                    confirmRequest.value = null
+                    nav.popBackStack()
+                }
                 ConfirmScreen(
                     viewModel = viewModel,
                     onCancel = {
@@ -74,6 +79,8 @@ fun AppNav(
                         nav.popBackStack()
                     },
                 )
+            } else {
+                LaunchedEffect(Unit) { nav.popBackStack() }
             }
         }
         composable(Routes.HISTORY) {
