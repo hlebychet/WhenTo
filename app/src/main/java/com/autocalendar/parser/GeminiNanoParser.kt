@@ -5,6 +5,7 @@ import com.autocalendar.domain.ParseRequest
 import com.autocalendar.domain.ParseResult
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
+import java.time.LocalDateTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
@@ -48,6 +49,12 @@ class GeminiNanoParser(
 
         val draft = mapper.fromDetected(detected)
             ?: return ParseResult.Failure(ParseFailureReason.MISSING_DATE_OR_TIME)
+
+        val correctedDate = NextWeekdayDateCorrector.resolve(request.rawText, request.today)
+        if (correctedDate != null) {
+            val correctedStart = LocalDateTime.of(correctedDate, draft.startDateTime.toLocalTime())
+            return ParseResult.Success(draft.copy(startDateTime = correctedStart))
+        }
 
         return ParseResult.Success(draft)
     }
