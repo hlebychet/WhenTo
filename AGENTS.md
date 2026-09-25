@@ -16,7 +16,8 @@
 
 - `main` = stable. All feature work happens on a feature branch in a worktree (see Repo layout), integrated back via superpowers:finishing-a-development-branch.
 - The repo has one remote `origin` (`git@github.com:hlebychet/WhenTo.git`); never create additional remotes without asking.
-- **Integration back to `main` happens locally, then is pushed**: merge the feature branch on `main` in the main checkout, run the test suite on the merged result, `git push origin main`, then delete the merged branch locally and on the remote. (This is a solo Android repo with no CI; remote-PR flow would be introduced if collaborators or CI arrive.)
+- **Integration back to `main` happens locally, then is pushed**: merge the feature branch on `main` in the main checkout, run the test suite on the merged result, `git push origin main`, then delete the merged branch locally and on the remote. (Feature merges stay local; remote-PR flow would be introduced if collaborators arrive. Releases, however, are automated: see below.)
+- **Releases**: pushed tags `v*` trigger `.github/workflows/release.yml`, which builds the release APK on GitHub Actions and creates a GitHub Release with the APK attached.
 - One commit per plan task, using the exact `git add`+`git commit` command the plan prescribes for that step. Never batch multiple tasks into one commit; never skip a task's commit.
 - `AGENTS.md` lives on `main`; edit it inside the current feature worktree and let the branch merge carry the update to `main`.
 
@@ -25,6 +26,8 @@
 - Set `JAVA_HOME` before any gradle command — system JDK 24/25 is too new for Gradle 8.13; use Android Studio's JBR (JDK 21):
   `$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"`
 - Android SDK at `%LOCALAPPDATA%\Android\Sdk`, wired via git-ignored `local.properties` (`sdk.dir`).
+- Release signing key: `C:\Users\hlebychet\.android\whento-release.jks`, referenced by git-ignored `key.properties` in the root of each worktree (`storeFile/storePassword/keyAlias/keyPassword`). Without `key.properties` the release build signs with the debug key. Guard the `.jks` and its passwords: they are the only way to update an installed release.
+- GitHub CLI (`gh`) at `C:\Program Files\GitHub CLI\gh.exe`; it is not on `PATH` in agents' shells, so call it by full path. Requires `gh auth login` in an interactive terminal the first time (SSH protocol).
 - The SDK has **no `cmdline-tools`/`sdkmanager`** — don't try to install SDK packages from the CLI; use Android Studio's UI if packages are ever missing.
 - No system gradle — always use the wrapper from the worktree root: `.\gradlew.bat …`
 - Commands (from the worktree root):
