@@ -27,6 +27,8 @@
   `$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"`
 - Android SDK at `%LOCALAPPDATA%\Android\Sdk`, wired via git-ignored `local.properties` (`sdk.dir`).
 - Release signing key: `C:\Users\hlebychet\.android\whento-release.jks`, referenced by git-ignored `key.properties` in the root of each worktree (`storeFile/storePassword/keyAlias/keyPassword`). Without `key.properties` the release build signs with the debug key. Guard the `.jks` and its passwords: they are the only way to update an installed release.
+- APKs are named by Gradle itself: `WhenTo-v<version>-debug.apk` / `WhenTo-v<version>-release.apk` (`applicationVariants` renames them). On CI the release APK is debug-key signed (no keystore secrets configured yet) — the secrets step was deliberately removed because it failed on unset secrets; re-add it only together with the actual `KEYSTORE_*` secrets.
+- CI quirks that cost a release cycle: `gradlew` must stay executable in git (mode 100755) or Linux runners fail the build step with exit 126; GitHub-hosted runners need build-tools/platforms installed and licenses accepted, which `release.yml` does via `sdkmanager` (the runner's cmdline-tools exist but the local SDK on this machine does not).
 - GitHub CLI (`gh`) at `C:\Program Files\GitHub CLI\gh.exe`; it is not on `PATH` in agents' shells, so call it by full path. Requires `gh auth login` in an interactive terminal the first time (SSH protocol).
 - The SDK has **no `cmdline-tools`/`sdkmanager`** — don't try to install SDK packages from the CLI; use Android Studio's UI if packages are ever missing.
 - No system gradle — always use the wrapper from the worktree root: `.\gradlew.bat …`
