@@ -15,7 +15,7 @@
 ## Git workflow
 
 - `main` = stable. All feature work happens on a feature branch in a worktree (see Repo layout), integrated back via superpowers:finishing-a-development-branch.
-- **No git remote is configured** — don't push, and don't create a remote without asking.
+- The repo has one remote `origin` (`git@github.com:hlebychet/WhenTo.git`); push feature branches only via superpowers:finishing-a-development-branch, and never create additional remotes without asking.
 - One commit per plan task, using the exact `git add`+`git commit` command the plan prescribes for that step. Never batch multiple tasks into one commit; never skip a task's commit.
 - Keep `AGENTS.md` content identical on both branches (commit on one, fast-forward the other).
 
