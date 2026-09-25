@@ -10,7 +10,7 @@ object PlainDetectedMeetingAdapter {
             .replaceFirst(Regex("```\\s*$"), "")
             .trim()
         val whole = parseObject(cleaned)
-        val obj = whole ?: parseObject(firstJsonObject(cleaned) ?: return null) ?: return null
+        val obj = whole ?: firstParsableObject(cleaned) ?: return null
         return fromObject(obj)
     }
 
@@ -20,18 +20,33 @@ object PlainDetectedMeetingAdapter {
         null
     }
 
-    private fun firstJsonObject(text: String): String? {
+    private fun firstParsableObject(text: String): JSONObject? {
         var depth = 0
         var start = -1
+        var inString = false
+        var escaped = false
         for (index in text.indices) {
-            when (text[index]) {
+            val ch = text[index]
+            if (inString) {
+                when {
+                    escaped -> escaped = false
+                    ch == '\\' -> escaped = true
+                    ch == '"' -> inString = false
+                }
+                continue
+            }
+            when (ch) {
+                '"' -> if (depth > 0) inString = true
                 '{' -> {
                     if (depth == 0) start = index
                     depth++
                 }
                 '}' -> if (depth > 0) {
                     depth--
-                    if (depth == 0) return text.substring(start, index + 1)
+                    if (depth == 0) {
+                        val candidate = parseObject(text.substring(start, index + 1))
+                        if (candidate != null) return candidate
+                    }
                 }
             }
         }

@@ -68,8 +68,8 @@ class ConfirmViewModelTest {
     @Test
     fun `create event saves to history on success`() = runTest {
         val launcher = FakeLauncher(CalendarLaunchOutcome.Success(0))
-        var savedEvent: com.autocalendar.calendar.EventToSave? = null
-        val vm = ConfirmViewModel(launcher, { savedEvent = it }, this)
+        val savedEvents = mutableListOf<com.autocalendar.calendar.EventToSave>()
+        val vm = ConfirmViewModel(launcher, { savedEvents += it }, this)
 
         vm.onDraftReady(
             MeetingDraft("Discuss mockup", LocalDateTime.of(2026, 9, 25, 15, 0), 30, "Starbucks"),
@@ -80,12 +80,27 @@ class ConfirmViewModelTest {
         vm.onCreateClick()
         advanceUntilIdle()
 
-        assertNotNull(savedEvent)
-        val saved = savedEvent!!
+        assertEquals(1, savedEvents.size)
+        val saved = savedEvents.first()
         assertEquals("Discuss mockup", saved.title)
         assertEquals(expectedBegin, saved.beginMillis)
         assertEquals((expectedBegin ?: 0L) + 30 * 60_000L, requireNotNull(saved.endMillis))
         assertEquals("Starbucks", saved.location)
+    }
+
+    @Test
+    fun `blank title is rejected without launching`() {
+        val launcher = FakeLauncher(CalendarLaunchOutcome.Success(0))
+        val vm = ConfirmViewModel(launcher, { })
+
+        vm.onDraftReady(
+            MeetingDraft("   ", LocalDateTime.of(2026, 9, 25, 15, 0), 30, "Starbucks"),
+            "raw text",
+        )
+        vm.onCreateClick()
+
+        assertEquals("Title cannot be empty", vm.error.value)
+        assertNull(launcher.lastEvent)
     }
 
     @Test

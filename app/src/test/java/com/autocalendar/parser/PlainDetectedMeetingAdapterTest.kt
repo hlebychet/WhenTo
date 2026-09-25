@@ -67,6 +67,18 @@ class PlainDetectedMeetingAdapterTest {
     }
 
     @Test
+    fun `stray braces in prose are skipped in favor of the real object`() {
+        val detected = PlainDetectedMeetingAdapter.fromJson(
+            "See {details} here: {\"title\":\"Pairing\",\"date\":\"2026-10-05\",\"time\":\"14:00\",\"durationMinutes\":50,\"location\":null}",
+        )
+        assertEquals("Pairing", detected?.title)
+        assertEquals("2026-10-05", detected?.date)
+        assertEquals("14:00", detected?.time)
+        assertEquals(50, detected?.durationMinutes)
+        assertNull(detected?.location)
+    }
+
+    @Test
     fun `garbage returns null`() {
         assertNull(PlainDetectedMeetingAdapter.fromJson("not json at all"))
     }
