@@ -37,19 +37,6 @@ jobs:
           yes | "$CMDT/sdkmanager" --licenses > /dev/null || true
           "$CMDT/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;36.1.0" > /dev/null
 
-      - name: Write signing config from secrets
-        shell: bash
-        run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > whento-release.jks
-            cat > key.properties <<EOF
-            storeFile=${{ github.workspace }}/whento-release.jks
-            storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-            keyAlias=${{ secrets.KEYSTORE_ALIAS }}
-            keyPassword=${{ secrets.KEYSTORE_KEY_PASSWORD }}
-            EOF
-          fi
-
       - name: Build release APK
         run: ./gradlew :app:assembleRelease --no-daemon
 
