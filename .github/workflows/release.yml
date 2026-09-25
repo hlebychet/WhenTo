@@ -53,13 +53,12 @@ jobs:
           body: |
             ## WhenTo ${{ github.ref_name }}
 
-            Turn a messenger message into a calendar event in a couple of taps —
-            parsed fully on-device, no network or cloud.
+            Turn a messenger message into a calendar event in a couple of taps, parsed fully on-device with no network or cloud.
 
             ### What's here
-            - `WhenTo-v*.release.apk` — installable Android APK (see README for install steps).
+            - WhenTo-vX.Y.Z-release.apk — installable Android APK (see README install steps).
 
             ### Requirements
-            - Android 8.0+
-            - Phone with Gemini Nano (currently Pixel 10 series)
+            - Android 8.0 or newer
+            - A phone with Gemini Nano available through AICore (verified on the Pixel 10 series)
             - Optional one-time on-device model download
