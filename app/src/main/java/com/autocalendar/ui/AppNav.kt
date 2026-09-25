@@ -55,7 +55,7 @@ fun AppNav(
             LaunchedEffect(pending) {
                 val shared = pending
                 if (shared != null) {
-                    viewModel.onTextChange(shared)
+                    viewModel.onShared(shared)
                     pendingSharedText.value = null
                 }
             }

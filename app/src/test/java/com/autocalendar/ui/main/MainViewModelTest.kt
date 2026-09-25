@@ -97,4 +97,52 @@ class MainViewModelTest {
 
         assertEquals(1, parser.calls)
     }
+
+    @Test
+    fun `shared text auto-parses and emits draft`() = runTest {
+        val draft = MeetingDraft(
+            title = "Discuss mockup",
+            startDateTime = LocalDateTime.of(2026, 9, 25, 15, 0),
+            durationMinutes = 30,
+            location = null,
+        )
+        val parser = FakeParser(ParseResult.Success(draft))
+        var emitted: MeetingDraft? = null
+
+        val vm = MainViewModel(parser, { null }, { d, _ -> emitted = d }, this)
+
+        vm.onShared("Let's meet on Thursday at 3pm to discuss the mockup.")
+        advanceUntilIdle()
+
+        assertEquals(1, parser.calls)
+        assertEquals(draft, emitted)
+        assertEquals("Let's meet on Thursday at 3pm to discuss the mockup.", vm.text.value)
+        assertEquals(false, vm.isLoading.value)
+        assertNull(vm.error.value)
+    }
+
+    @Test
+    fun `shared short text surfaces error without calling parser`() = runTest {
+        val parser = FakeParser(ParseResult.Failure(ParseFailureReason.TOO_SHORT_TEXT))
+        val vm = MainViewModel(parser, MeetingTextValidator::validate, { _, _ -> }, this)
+
+        vm.onShared("ok")
+        advanceUntilIdle()
+
+        assertEquals(0, parser.calls)
+        assertEquals(ParseFailureReason.TOO_SHORT_TEXT.userMessage(), vm.error.value)
+        assertEquals("ok", vm.text.value)
+    }
+
+    @Test
+    fun `shared blank text is rejected without calling parser`() = runTest {
+        val parser = FakeParser(ParseResult.Failure(ParseFailureReason.TOO_SHORT_TEXT))
+        val vm = MainViewModel(parser, MeetingTextValidator::validate, { _, _ -> }, this)
+
+        vm.onShared("")
+        advanceUntilIdle()
+
+        assertEquals(0, parser.calls)
+        assertEquals(ParseFailureReason.EMPTY_TEXT.userMessage(), vm.error.value)
+    }
 }

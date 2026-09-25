@@ -39,6 +39,11 @@ class MainViewModel(
         clearError()
     }
 
+    fun onShared(value: String) {
+        onTextChange(value)
+        parse()
+    }
+
     fun parse() {
         if (_isLoading.value) return
 
