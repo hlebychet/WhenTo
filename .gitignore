@@ -9,3 +9,6 @@ captures/
 .worktrees/
 .superpowers/
 opencode.json
+key.properties
+*.jks
+*.keystore

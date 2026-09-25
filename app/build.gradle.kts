@@ -1,3 +1,12 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
+import java.util.Properties
+
+val storeProperties = Properties().apply {
+    val propsFile = rootProject.file("key.properties")
+    if (propsFile.exists()) propsFile.inputStream().use { load(it) }
+}
+val hasReleaseSigning = storeProperties.isNotEmpty()
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,10 +26,28 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(storeProperties["storeFile"] as String)
+                storePassword = storeProperties["storePassword"] as String
+                keyAlias = storeProperties["keyAlias"] as String
+                keyPassword = storeProperties["keyPassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+        }
+    }
+
+    applicationVariants.all {
+        outputs.all {
+            (this as BaseVariantOutputImpl).outputFileName = "WhenTo-v$versionName-${name}.apk"
         }
     }
 
