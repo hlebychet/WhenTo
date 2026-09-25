@@ -37,8 +37,33 @@ jobs:
           yes | "$CMDT/sdkmanager" --licenses > /dev/null || true
           "$CMDT/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;36.1.0" > /dev/null
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Build release APK
         run: chmod +x gradlew && ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          PREV=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+          {
+            echo "## WhenTo $GITHUB_REF_NAME"
+            echo
+            if [ -n "$PREV" ]; then
+              echo "### What's new"
+              git log "$PREV..HEAD" --no-merges --format='- %s'
+            else
+              echo "Initial release."
+            fi
+            echo
+            echo "Turn a messenger message into a calendar event in a couple of taps - parsed fully on-device, no network or cloud."
+            echo
+            echo "### Requirements"
+            echo "- Android 8.0 or newer"
+            echo "- A phone with Gemini Nano available through AICore (verified on the Pixel 10 series)"
+            echo "- Optional one-time on-device model download"
+          } > release-notes.md
 
       - name: Rename APK with version
         shell: bash
@@ -49,16 +74,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: WhenTo ${{ github.ref_name }}
+          body_path: release-notes.md
           files: WhenTo-v*-release.apk
-          body: |
-            ## WhenTo ${{ github.ref_name }}
-
-            Turn a messenger message into a calendar event in a couple of taps, parsed fully on-device with no network or cloud.
-
-            ### What's here
-            - WhenTo-vX.Y.Z-release.apk — installable Android APK (see README install steps).
-
-            ### Requirements
-            - Android 8.0 or newer
-            - A phone with Gemini Nano available through AICore (verified on the Pixel 10 series)
-            - Optional one-time on-device model download
