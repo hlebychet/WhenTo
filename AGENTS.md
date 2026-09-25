@@ -15,10 +15,10 @@
 ## Git workflow
 
 - `main` = stable. All feature work happens on a feature branch in a worktree (see Repo layout), integrated back via superpowers:finishing-a-development-branch.
-- The repo has one remote `origin` (`git@github.com:hlebychet/WhenTo.git`); push feature branches only via superpowers:finishing-a-development-branch, and never create additional remotes without asking.
-- **Merges happen on the remote (GitHub) via pull request, never locally on `main`.** After the human approves a feature, push the branch, open a PR, and let the remote merge close it.
+- The repo has one remote `origin` (`git@github.com:hlebychet/WhenTo.git`); never create additional remotes without asking.
+- **Integration back to `main` happens locally, then is pushed**: merge the feature branch on `main` in the main checkout, run the test suite on the merged result, `git push origin main`, then delete the merged branch locally and on the remote. (This is a solo Android repo with no CI; remote-PR flow would be introduced if collaborators or CI arrive.)
 - One commit per plan task, using the exact `git add`+`git commit` command the plan prescribes for that step. Never batch multiple tasks into one commit; never skip a task's commit.
-- Keep `AGENTS.md` content identical on both branches (commit on one, fast-forward the other).
+- `AGENTS.md` lives on `main`; edit it inside the current feature worktree and let the branch merge carry the update to `main`.
 
 ## Build environment (Windows, pwsh)
 
