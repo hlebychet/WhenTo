@@ -1,84 +1,86 @@
 # WhenTo
 
-Local-first Android app that extracts a meeting from a messenger message you
-share with it, shows the result for confirmation, and creates a calendar
-event. All parsing runs on-device via Google Gemini Nano (ML Kit GenAI on
-AICore) — no network, no cloud, no text leaves the device.
+Turn a messenger message into a calendar event in a couple of taps. WhenTo
+reads the meeting line straight from what you share ("Let's discuss the mockup
+on Thursday at 15:00", "Договоримся в четверг в 15:00 обсудить макет"),
+extracts the date, time and duration with on-device AI, and opens the system
+calendar with the event already filled in. Your text never leaves the phone.
 
-## What it does
+## Highlights
 
-1. You share one or more selected messages from a messenger ("Let's meet to
-   discuss the mockup, on Thursday at 15:00 at Starbucks", a two-line chat
-   excerpt, etc.) into WhenTo.
-2. The app parses the text locally and fills a confirmation screen: title,
-   date, time, duration, location.
-3. You review and tap "Create event" — the system calendar opens with the
-   event pre-filled.
-4. A history of created events is kept in the app; tapping a record re-opens
-   the confirmation screen to re-create the event.
+- Works fully offline — no network, no cloud, no account.
+- On-device Gemini Nano (AICore) parses English and Russian messages.
+- Usually needs only two taps: share the text, then save in the calendar.
+- Understands relative dates such as "next Friday".
+- Keeps a history of created events so you can recreate them instantly.
+
+## How it works
+
+1. In any messenger, open a message that contains a meeting ("Let's meet
+   Thursday at 15:00 to discuss the mockup", "Увидимся в следующую пятницу
+   в 10 утра").
+2. Share it with WhenTo — or select two messages and share them together.
+3. WhenTo parses the text and opens your calendar editor with the event
+   pre-filled. Fix anything you like and tap "Save".
+
+There is no confirmation screen in the way: the calendar editor itself is
+where you review and adjust before saving.
 
 ## Requirements
 
-- Android 8.0+ (minSdk 26).
-- The on-device parser needs Gemini Nano via the ML Kit GenAI Prompt API on
-  AICore. At the time of writing this is available on a Pixel 10 Pro after:
-  - AICore experimental enrollment,
-  - the nano-v3 model download (may take a few minutes; a routed VPN can
-    stall it — pause the VPN while it completes).
-- No other hardware or account is required; the app itself needs no Google
-  account.
+- Android 8.0 or newer.
+- A phone with Gemini Nano for the on-device AI (currently the Pixel 10
+  series). The first run may need a one-time model download.
 
-## Architecture
+## Install
 
-- Single Activity + Jetpack Compose, MVVM (`MainViewModel`,
-  `ConfirmViewModel`, `HistoryViewModel`).
-- Three small seams keep the logic testable without Android:
-  - `MeetingParser` — text → `MeetingDraft` (implemented by
-    `GeminiNanoParser`),
-  - `ParsedMeetingStore` — history persistence (Room),
-  - `CalendarLauncher` — ACTION_INSERT into the system calendar.
-- All parsing/validation/date logic is pure Kotlin unit-tested on the JVM.
+Until WhenTo reaches an app store, download the APK from this repository's
+Releases page:
 
-Parsing detail: the model is asked to return meeting fields as JSON; a
-deterministic pass (`NextWeekdayDateCorrector`) re-derives "next <weekday>"
-dates (RU and EN) from the current date, because the beta model resolves
-relative dates unreliably.
+1. Open the [Releases](https://github.com/hlebychet/WhenTo/releases) page and
+   grab the latest `WhenTo-vX.Y.Z-release.apk`.
+2. When Android asks, allow installing from unknown sources.
+3. Open the APK and install.
 
-## Building
+## Getting started
 
-Windows prerequisites: set `JAVA_HOME` to the bundled Java 21 before any
-Gradle command (the system JDK 24/25 is too new for Gradle 8.13):
-
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
-```
-
-Commands (from the project root):
-
-- Debug APK: `.\gradlew.bat :app:assembleDebug`
-- Unit tests: `.\gradlew.bat :app:testDebugUnitTest`
-- Install to a connected device: `.\gradlew.bat :app:installDebug`
-
-## Testing
-
-- JVM unit tests cover parsing, validation, date handling, calendar intent
-  building, view models, and history storage (47 tests, 12 classes).
-- On-device verification results are recorded in
-  [docs/verification-notes.md](docs/verification-notes.md).
-
-## Project layout
-
-- `docs/superpowers/specs/` — design spec (requirements, architecture).
-- `docs/superpowers/plans/` — implementation plan (13 tasks, TDD).
-- `docs/verification-notes.md` — on-device test results.
-- `app/` — the Android application.
+- In Telegram, WhatsApp, Slack or any messenger, tap a message and choose
+  **Share**, then pick **WhenTo**.
+- The calendar editor opens pre-filled. Review the details and press **Save**.
+- The event also lands in WhenTo's history — tap any entry to recreate it.
 
 ## Known limitations (MVP)
 
-- Date/time/duration are read-only on the confirmation screen; edit them in
-  the calendar editor after "Create event".
-- Structured Output (alpha) is not used; the plain-JSON parse path is active.
-- Relative dates beyond "next <weekday>" (e.g. "the day after tomorrow",
-  "in a week") follow whatever the model produces.
-- The model sometimes repeats the location as the title; correct it in the
-  calendar editor before saving.
+- Date parsing is most reliable for explicit times and "next <weekday>"
+  references.
+- Location is intentionally not passed to the calendar in this version.
+- English and Russian message detection is supported; other languages may vary.
+
+## Для пользователей (RU)
+
+**Что это.** Приложение превращает сообщение о встрече в событие
+календаря за пару нажатий: вы делитесь текстом («Встретимся в четверг в
+15:00 обсудить макет»), WhenTo распознаёт дату, время и длительность прямо
+на устройстве и открывает системный календарь с уже заполненным событием.
+Интернет не нужен, текст никуда не уходит с телефона.
+
+**Как установить.** На вкладке Releases скачайте последний
+`WhenTo-vX.Y.Z-release.apk` и откройте файл. При запросе разрешите установку
+из неизвестных источников.
+
+**Как пользоваться.** В любом мессенджере выберите сообщение с встречай →
+**Поделиться** (Share) → **WhenTo**. Откроется редактор календаря с готовым
+событием — поправьте при необходимости и нажмите **Сохранить**. История
+созданных событий хранится в приложении.
+
+**Что нужно.** Android 8.0+, телефон с Gemini Nano (сейчас это Pixel 10).
+Первый запуск может потребовать однократной загрузки модели.
+
+**Ограничения.** Надёжнее всего распознаются явные время и фразы вида
+«в следующий четверг». Локация в этой версии в календарь не передаётся.
+
+## For developers
+
+Build instructions, architecture and testing live in
+[CONTRIBUTING.md](CONTRIBUTING.md). Design and implementation history are
+under [docs/](docs/).
