@@ -47,6 +47,7 @@
 - Gemini Nano runs via ML Kit GenAI Prompt API on AICore. Only Pixel 10 Pro is a valid test target; Pixel 7 Pro lacks the model for this API. The model must be downloaded (AICore experimental enrollment) before Task 13.
 - The phone stays with the human during development — don't run device steps (install/logcat/verify) until Task 13 and the human confirms the Pixel 10 Pro is connected. Tasks 1–12 run headless (JVM unit tests only).
 - `genai-prompt:1.0.0-beta4` / `genai-schema-compiler:1.0.0-alpha1` are beta/alpha — Task 7 Step 4 allows adapting call sites to the current API if signatures drift. Keep the ProGuard `-keep` rule for `com.autocalendar.parser.DetectedMeeting` (structured-output schema class).
+- To verify the ML Kit beta API surface headlessly, `javap` the real AAR from the gradle cache: `Get-ChildItem ~\.gradle\caches -Recurse -Filter "genai-prompt-1.0.0-beta4.aar"`, `Expand-Archive`, then `javap -cp classes.jar <class>`. In beta4 `generateContent(prompt: String)` returns `GenerateContentResponse` (not a String) with `getCandidates()`; text comes from `Candidate.getText()` — any reflection-based response extraction will silently fail at runtime.
 
 ## Keep this file current
 
