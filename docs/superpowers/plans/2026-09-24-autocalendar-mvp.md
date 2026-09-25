@@ -31,7 +31,7 @@
 
 Failure modes the spec implies that no task's tests exercise them directly but a real user will hit; each line is pinned to a test in the owning task:
 
-1. **Shared text contains no meeting at all** (e.g. "ok", "👍") → app must show a clear error, not fail silently or crash. → Task 3 validation tests.
+1. **Shared text contains no meeting at all** (e.g. "ok") → app must show a clear error, not fail silently or crash. → Task 3 validation tests.
 2. **Messengers sometimes share empty/HTML-extracted text** → blank or whitespace-only share must be rejected before calling the model. → Task 3 blank-input test.
 3. **Model returns a date but no time** → without a time the event cannot be placed; treat as failure with a message. → Task 4 mapper test.
 4. **User re-shares while a parse is in flight** → ignore the new parse, show progress, don't double-launch. → Task 8 ViewModel `isLoading` guard test.
