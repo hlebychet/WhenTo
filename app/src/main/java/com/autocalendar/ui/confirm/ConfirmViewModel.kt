@@ -45,6 +45,16 @@ class ConfirmViewModel(
         _durationMinutes.value = draft.durationMinutes
     }
 
+    fun onTitleChange(value: String) {
+        _title.value = value
+        _error.value = null
+    }
+
+    fun onLocationChange(value: String?) {
+        _location.value = value
+        _error.value = null
+    }
+
     fun onCreateClick() {
         val title = _title.value ?: return
         val startMillis = _startMillis.value ?: return
