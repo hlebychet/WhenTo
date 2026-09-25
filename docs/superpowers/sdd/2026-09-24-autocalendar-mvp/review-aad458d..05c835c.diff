@@ -1,0 +1,923 @@
+# Review package: aad458d..05c835c6ddf87b9cebf93d22f3d0a5f6b6ec5ee1
+
+## Commits
+05c835c fix: address final review findings
+
+## Files changed
+ .gitignore                                         |  4 +-
+ app/src/main/AndroidManifest.xml                   |  7 +++
+ app/src/main/java/com/autocalendar/AppContainer.kt |  1 +
+ app/src/main/java/com/autocalendar/MainActivity.kt |  9 ++--
+ .../calendar/AndroidCalendarLauncher.kt            | 18 +++----
+ .../autocalendar/calendar/CalendarIntentBuilder.kt |  2 +-
+ .../com/autocalendar/parser/GeminiNanoParser.kt    | 34 ++++++-------
+ .../parser/PlainDetectedMeetingAdapter.kt          | 58 +++++++++++++++-------
+ app/src/main/java/com/autocalendar/ui/AppNav.kt    | 23 +++++----
+ .../main/java/com/autocalendar/ui/ErrorMessages.kt | 19 +++++++
+ .../autocalendar/ui/confirm/ConfirmViewModel.kt    | 15 +++---
+ .../com/autocalendar/ui/history/HistoryScreen.kt   |  3 +-
+ .../java/com/autocalendar/ui/main/MainViewModel.kt |  5 +-
+ .../autocalendar/calendar/CalendarLauncherTest.kt  |  2 +-
+ .../parser/PlainDetectedMeetingAdapterTest.kt      | 35 +++++++++++++
+ .../ui/confirm/ConfirmViewModelTest.kt             | 40 ++++++++-------
+ .../com/autocalendar/ui/main/MainViewModelTest.kt  |  5 +-
+ 17 files changed, 186 insertions(+), 94 deletions(-)
+
+## Diff
+diff --git a/.gitignore b/.gitignore
+index 2452e85..6092125 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,8 +1,10 @@
+ .gradle/
+ build/
+ local.properties
+ .idea/
+ *.iml
+ captures/
+ .externalNativeBuild/
+-.cxx/
+\ No newline at end of file
++.cxx/
++.worktrees/
++.superpowers/
+\ No newline at end of file
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 53636b0..a5e3073 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -1,13 +1,20 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
++    <queries>
++        <intent>
++            <action android:name="android.intent.action.INSERT" />
++            <data android:scheme="content" />
++        </intent>
++    </queries>
++
+     <application
+         android:name=".AutoCalendarApp"
+         android:label="@string/app_name"
+         android:theme="@style/Theme.AutoCalendar"
+         android:allowBackup="true"
+         android:supportsRtl="true">
+ 
+         <activity
+             android:name=".MainActivity"
+             android:exported="true"
+diff --git a/app/src/main/java/com/autocalendar/AppContainer.kt b/app/src/main/java/com/autocalendar/AppContainer.kt
+index 19c969d..126b5e9 100644
+--- a/app/src/main/java/com/autocalendar/AppContainer.kt
++++ b/app/src/main/java/com/autocalendar/AppContainer.kt
+@@ -10,20 +10,21 @@ import com.autocalendar.domain.MeetingDraft
+ import com.autocalendar.parser.GeminiNanoParser
+ import com.autocalendar.parser.MeetingParser
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.SupervisorJob
+ import kotlinx.coroutines.flow.MutableStateFlow
+ 
+ data class ConfirmRequest(
+     val draft: MeetingDraft,
+     val rawText: String,
++    val finishOnDone: Boolean = true,
+ )
+ 
+ class AppContainer(context: Context) {
+ 
+     private val database = AutoCalendarDatabase.create(context)
+ 
+     val parser: MeetingParser = GeminiNanoParser()
+     val store: ParsedMeetingStore = RoomParsedMeetingStore(database.parsedMeetingDao())
+     val launcher: CalendarLauncher = AndroidCalendarLauncher(context)
+     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+diff --git a/app/src/main/java/com/autocalendar/MainActivity.kt b/app/src/main/java/com/autocalendar/MainActivity.kt
+index 294ea20..046fb40 100644
+--- a/app/src/main/java/com/autocalendar/MainActivity.kt
++++ b/app/src/main/java/com/autocalendar/MainActivity.kt
+@@ -13,37 +13,40 @@ import com.autocalendar.ui.createHistoryViewModel
+ import com.autocalendar.ui.createMainViewModel
+ import com.autocalendar.ui.history.HistoryViewModel
+ import com.autocalendar.ui.main.MainViewModel
+ 
+ class MainActivity : ComponentActivity() {
+ 
+     private val container: AppContainer by lazy { (application as AutoCalendarApp).container }
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+-        handleSharedText(intent)
++        if (savedInstanceState == null) {
++            handleSharedText(intent)
++        }
+ 
+         setContent {
+             MaterialTheme {
+                 AppNav(
+                     pendingSharedText = container.pendingSharedText,
+                     confirmRequest = container.confirmRequest,
+                     createMain = ::buildMainViewModel,
+                     createConfirm = ::buildConfirmViewModel,
+                     createHistory = ::buildHistoryViewModel,
+                 )
+             }
+         }
+     }
+ 
+     override fun onNewIntent(intent: Intent) {
+         super.onNewIntent(intent)
++        setIntent(intent)
+         handleSharedText(intent)
+     }
+ 
+     private fun handleSharedText(intent: Intent?) {
+         val shared = intent?.getStringExtra(Intent.EXTRA_TEXT)?.trim().orEmpty()
+         if (shared.isEmpty()) return
+         container.pendingSharedText.value = shared
+     }
+ 
+     private fun buildMainViewModel(): MainViewModel =
+@@ -53,22 +56,22 @@ class MainActivity : ComponentActivity() {
+                 container.confirmRequest.value = ConfirmRequest(draft, rawText)
+             },
+         )
+ 
+     private fun buildConfirmViewModel(request: ConfirmRequest): ConfirmViewModel =
+         createConfirmViewModel(
+             container = container,
+             request = request,
+             onDone = {
+                 container.confirmRequest.value = null
+-                finish()
++                if (request.finishOnDone) finish()
+             },
+         )
+ 
+     private fun buildHistoryViewModel(): HistoryViewModel =
+         createHistoryViewModel(
+             container = container,
+             onSelect = { item ->
+-                container.confirmRequest.value = ConfirmRequest(item.toDraft(), item.rawText)
++                container.confirmRequest.value = ConfirmRequest(item.toDraft(), item.rawText, finishOnDone = false)
+             },
+         )
+ }
+diff --git a/app/src/main/java/com/autocalendar/calendar/AndroidCalendarLauncher.kt b/app/src/main/java/com/autocalendar/calendar/AndroidCalendarLauncher.kt
+index b941ac4..f9c1feb 100644
+--- a/app/src/main/java/com/autocalendar/calendar/AndroidCalendarLauncher.kt
++++ b/app/src/main/java/com/autocalendar/calendar/AndroidCalendarLauncher.kt
+@@ -1,33 +1,27 @@
+ package com.autocalendar.calendar
+ 
+-import android.app.Activity
+ import android.content.Context
+ import android.content.Intent
+ import android.content.pm.PackageManager
+-import android.content.pm.ResolveInfo
+ 
+ class AndroidCalendarLauncher(private val context: Context) : CalendarLauncher {
+ 
+     override fun launch(event: EventToSave): CalendarLaunchOutcome {
+         val intent = CalendarIntentBuilder.build(event)
+-        
++
+         val packageManager = context.packageManager
+         val activities = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+-        
++
+         if (activities.isEmpty()) {
+             return CalendarLaunchOutcome.Failure(LaunchFailureReason.NO_CALENDAR_APP)
+         }
+-        
++
+         try {
+-            if (context is Activity) {
+-                context.startActivityForResult(intent, 0)
+-            } else {
+-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+-                context.startActivity(intent)
+-            }
++            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++            context.startActivity(intent)
+             return CalendarLaunchOutcome.Success(0)
+         } catch (e: android.content.ActivityNotFoundException) {
+             return CalendarLaunchOutcome.Failure(LaunchFailureReason.ACTIVITY_NOT_FOUND)
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/java/com/autocalendar/calendar/CalendarIntentBuilder.kt b/app/src/main/java/com/autocalendar/calendar/CalendarIntentBuilder.kt
+index b0218b5..dc83581 100644
+--- a/app/src/main/java/com/autocalendar/calendar/CalendarIntentBuilder.kt
++++ b/app/src/main/java/com/autocalendar/calendar/CalendarIntentBuilder.kt
+@@ -7,17 +7,17 @@ data class EventToSave(
+     val beginMillis: Long,
+     val endMillis: Long?,
+     val location: String?,
+ )
+ 
+ object CalendarIntentBuilder {
+ 
+     fun build(event: EventToSave): android.content.Intent {
+         val intent = android.content.Intent(android.content.Intent.ACTION_INSERT)
+         intent.data = android.net.Uri.parse("content://com.android.calendar/events")
+-        intent.putExtra(android.content.Intent.EXTRA_TITLE, event.title)
++        intent.putExtra(CalendarContract.Events.TITLE, event.title)
+         intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, event.beginMillis)
+         event.endMillis?.let { intent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, it) }
+         event.location?.let { intent.putExtra("eventLocation", it) }
+         return intent
+     }
+ }
+\ No newline at end of file
+diff --git a/app/src/main/java/com/autocalendar/parser/GeminiNanoParser.kt b/app/src/main/java/com/autocalendar/parser/GeminiNanoParser.kt
+index bdfdefe..081de2e 100644
+--- a/app/src/main/java/com/autocalendar/parser/GeminiNanoParser.kt
++++ b/app/src/main/java/com/autocalendar/parser/GeminiNanoParser.kt
+@@ -1,79 +1,75 @@
+ package com.autocalendar.parser
+ 
+ import com.autocalendar.domain.ParseFailureReason
+ import com.autocalendar.domain.ParseRequest
+ import com.autocalendar.domain.ParseResult
+ import com.google.mlkit.genai.prompt.Generation
+ import com.google.mlkit.genai.prompt.GenerativeModel
++import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.delay
+ 
+ class GeminiNanoParser(
+     private val model: GenerativeModel = Generation.getClient(),
+     private val mapper: MeetingDraftMapper = MeetingDraftMapper(),
+     private val maxQuotaRetries: Int = 3,
+ ) : MeetingParser {
+ 
+     override suspend fun parse(request: ParseRequest): ParseResult {
+         val status = model.checkStatus()
+         when (status) {
+-            0 -> return ParseResult.Failure(ParseFailureReason.NANO_UNAVAILABLE)
+-            1 -> model.download().collect { }
+-            2, 3 -> Unit
++            STATUS_UNAVAILABLE -> return ParseResult.Failure(ParseFailureReason.NANO_UNAVAILABLE)
++            STATUS_NEEDS_DOWNLOAD -> model.download().collect { }
++            STATUS_DOWNLOADED, STATUS_AVAILABLE -> Unit
+             else -> Unit
+         }
+ 
+         var attempt = 0
+         while (true) {
+             try {
+                 return runExtraction(request)
+             } catch (e: Exception) {
++                if (e is CancellationException) throw e
+                 if (isQuotaError(e) && attempt < maxQuotaRetries) {
+                     attempt++
+                     delay(1_000L * attempt)
+                     continue
+                 }
+                 return ParseResult.Failure(ParseFailureReason.QUOTA_EXCEEDED)
+             }
+         }
+     }
+ 
+     private suspend fun runExtraction(request: ParseRequest): ParseResult {
+-        val prompt = PromptFactory.build(request.rawText, request.today)
+-
+         val detected = plainJsonExtraction(request)
+ 
+         if (detected == null) {
+             return ParseResult.Failure(ParseFailureReason.MODEL_PARSE_FAILED)
+         }
+ 
+         val draft = mapper.fromDetected(detected)
+             ?: return ParseResult.Failure(ParseFailureReason.MISSING_DATE_OR_TIME)
+ 
+         return ParseResult.Success(draft)
+     }
+ 
+     private suspend fun plainJsonExtraction(request: ParseRequest): DetectedMeeting? {
+         val prompt = PromptFactory.build(request.rawText, request.today)
+-        val response = model.generateContent(prompt) ?: return null
+-        // Try multiple ways to extract text from response
+-        val text = when (response) {
+-            is String -> response
+-            else -> try {
+-                // Try to get text via reflection or toString
+-                response.javaClass.getMethod("text").invoke(response) as? String
+-                    ?: response.javaClass.getMethod("toString").invoke(response) as? String
+-                    ?: return null
+-            } catch (e: Exception) {
+-                return null
+-            }
+-        }
++        val response = model.generateContent(prompt)
++        val text = response.candidates.firstOrNull()?.text ?: return null
+         return PlainDetectedMeetingAdapter.fromJson(text)
+     }
+ 
+     private fun isQuotaError(e: Exception): Boolean {
+         val msg = e.message ?: return false
+         return msg.contains("BUSY", ignoreCase = true) ||
+             msg.contains("QUOTA", ignoreCase = true) ||
+             msg.contains("BATTERY", ignoreCase = true)
+     }
+-}
+\ No newline at end of file
++
++    private companion object {
++        const val STATUS_UNAVAILABLE = 0
++        const val STATUS_NEEDS_DOWNLOAD = 1
++        const val STATUS_DOWNLOADED = 2
++        const val STATUS_AVAILABLE = 3
++    }
++}
+diff --git a/app/src/main/java/com/autocalendar/parser/PlainDetectedMeetingAdapter.kt b/app/src/main/java/com/autocalendar/parser/PlainDetectedMeetingAdapter.kt
+index 1a958e4..b827dbb 100644
+--- a/app/src/main/java/com/autocalendar/parser/PlainDetectedMeetingAdapter.kt
++++ b/app/src/main/java/com/autocalendar/parser/PlainDetectedMeetingAdapter.kt
+@@ -1,27 +1,51 @@
+ package com.autocalendar.parser
+ 
+ import org.json.JSONObject
+ 
+ object PlainDetectedMeetingAdapter {
+ 
+-    fun fromJson(text: String): DetectedMeeting? =
+-        try {
+-            val trimmed = text.trim()
+-                .removePrefix("```json")
+-                .removeSuffix("```")
+-                .trim()
+-            val obj = JSONObject(trimmed)
+-            DetectedMeeting(
+-                title = obj.optString("title"),
+-                date = obj.optString("date"),
+-                time = obj.optString("time"),
+-                durationMinutes = obj.optInt("durationMinutes").takeIf { it > 0 },
+-                location = sanitizeNullString(obj.optString("location")),
+-            )
+-        } catch (e: Exception) {
+-            null
++    fun fromJson(text: String): DetectedMeeting? {
++        val cleaned = text.trim()
++            .replaceFirst(Regex("(?i)^```[a-z]*"), "")
++            .replaceFirst(Regex("```\\s*$"), "")
++            .trim()
++        val whole = parseObject(cleaned)
++        val obj = whole ?: parseObject(firstJsonObject(cleaned) ?: return null) ?: return null
++        return fromObject(obj)
++    }
++
++    private fun parseObject(text: String): JSONObject? = try {
++        JSONObject(text)
++    } catch (e: Exception) {
++        null
++    }
++
++    private fun firstJsonObject(text: String): String? {
++        var depth = 0
++        var start = -1
++        for (index in text.indices) {
++            when (text[index]) {
++                '{' -> {
++                    if (depth == 0) start = index
++                    depth++
++                }
++                '}' -> if (depth > 0) {
++                    depth--
++                    if (depth == 0) return text.substring(start, index + 1)
++                }
++            }
+         }
++        return null
++    }
++
++    private fun fromObject(obj: JSONObject): DetectedMeeting = DetectedMeeting(
++        title = obj.optString("title"),
++        date = obj.optString("date"),
++        time = obj.optString("time"),
++        durationMinutes = obj.optInt("durationMinutes").takeIf { it > 0 },
++        location = sanitizeNullString(obj.optString("location")),
++    )
+ 
+     private fun sanitizeNullString(s: String?): String? =
+         s?.takeIf { it.isNotEmpty() && it != "null" }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/java/com/autocalendar/ui/AppNav.kt b/app/src/main/java/com/autocalendar/ui/AppNav.kt
+index a396c41..03abfe1 100644
+--- a/app/src/main/java/com/autocalendar/ui/AppNav.kt
++++ b/app/src/main/java/com/autocalendar/ui/AppNav.kt
+@@ -100,29 +100,34 @@ fun createMainViewModel(
+ 
+ fun createConfirmViewModel(
+     container: AppContainer,
+     request: ConfirmRequest,
+     onDone: () -> Unit,
+ ): ConfirmViewModel {
+     val viewModel = ConfirmViewModel(
+         launcher = container.launcher,
+         onEventSaved = { event ->
+             container.appScope.launch {
+-                container.store.add(
+-                    NewParsedMeeting(
+-                        rawText = request.rawText,
+-                        title = event.title,
+-                        startMillis = event.beginMillis,
+-                        endMillis = event.endMillis,
+-                        location = event.location,
+-                    ),
+-                )
++                try {
++                    container.store.add(
++                        NewParsedMeeting(
++                            rawText = request.rawText,
++                            title = event.title,
++                            startMillis = event.beginMillis,
++                            endMillis = event.endMillis,
++                            location = event.location,
++                        ),
++                    )
++                } catch (e: kotlinx.coroutines.CancellationException) {
++                    throw e
++                } catch (e: Exception) {
++                }
+             }
+             onDone()
+         },
+     )
+     viewModel.onDraftReady(request.draft, request.rawText)
+     return viewModel
+ }
+ 
+ fun createHistoryViewModel(
+     container: AppContainer,
+diff --git a/app/src/main/java/com/autocalendar/ui/ErrorMessages.kt b/app/src/main/java/com/autocalendar/ui/ErrorMessages.kt
+new file mode 100644
+index 0000000..0404282
+--- /dev/null
++++ b/app/src/main/java/com/autocalendar/ui/ErrorMessages.kt
+@@ -0,0 +1,19 @@
++package com.autocalendar.ui
++
++import com.autocalendar.calendar.LaunchFailureReason
++import com.autocalendar.domain.ParseFailureReason
++
++fun ParseFailureReason.userMessage(): String = when (this) {
++    ParseFailureReason.EMPTY_TEXT -> "Message is empty"
++    ParseFailureReason.TOO_SHORT_TEXT -> "Message is too short"
++    ParseFailureReason.NANO_UNAVAILABLE -> "On-device AI is not available"
++    ParseFailureReason.MISSING_DATE_OR_TIME -> "No meeting date or time found"
++    ParseFailureReason.MODEL_PARSE_FAILED -> "Could not understand the message"
++    ParseFailureReason.QUOTA_EXCEEDED -> "On-device AI is busy. Try again."
++    ParseFailureReason.SYSTEM_CALENDAR_MISSING -> "No calendar app found"
++}
++
++fun LaunchFailureReason.userMessage(): String = when (this) {
++    LaunchFailureReason.NO_CALENDAR_APP -> "No calendar app found"
++    LaunchFailureReason.ACTIVITY_NOT_FOUND -> "Calendar app could not be opened"
++}
+diff --git a/app/src/main/java/com/autocalendar/ui/confirm/ConfirmViewModel.kt b/app/src/main/java/com/autocalendar/ui/confirm/ConfirmViewModel.kt
+index 81738a3..b3621dc 100644
+--- a/app/src/main/java/com/autocalendar/ui/confirm/ConfirmViewModel.kt
++++ b/app/src/main/java/com/autocalendar/ui/confirm/ConfirmViewModel.kt
+@@ -1,27 +1,22 @@
+ package com.autocalendar.ui.confirm
+ 
+ import androidx.lifecycle.ViewModel
+ import androidx.lifecycle.viewModelScope
+ import com.autocalendar.calendar.CalendarLauncher
+-import com.autocalendar.calendar.CalendarLaunchOutcome
+-import com.autocalendar.calendar.EventToSave
+-import com.autocalendar.calendar.LaunchFailureReason
+-import com.autocalendar.data.ParsedMeetingStore
+ import com.autocalendar.domain.MeetingDraft
++import com.autocalendar.ui.userMessage
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.flow.MutableStateFlow
+ import kotlinx.coroutines.flow.StateFlow
+ import kotlinx.coroutines.launch
+ 
+-typealias TextValidator = (String) -> com.autocalendar.domain.ParseResult.Failure?
+-
+ class ConfirmViewModel(
+     private val launcher: CalendarLauncher,
+     private val onEventSaved: (com.autocalendar.calendar.EventToSave) -> Unit,
+     private val scope: CoroutineScope? = null,
+ ) : ViewModel() {
+ 
+     private val _scope: CoroutineScope = scope ?: viewModelScope
+ 
+     private val _title = MutableStateFlow<String?>(null)
+     val title: StateFlow<String?> = _title
+@@ -49,38 +44,42 @@ class ConfirmViewModel(
+         _title.value = value
+         _error.value = null
+     }
+ 
+     fun onLocationChange(value: String?) {
+         _location.value = value
+         _error.value = null
+     }
+ 
+     fun onCreateClick() {
+-        val title = _title.value ?: return
++        val title = _title.value
++        if (title.isNullOrBlank()) {
++            _error.value = "Title cannot be empty"
++            return
++        }
+         val startMillis = _startMillis.value ?: return
+         
+         val event = com.autocalendar.calendar.EventToSave(
+             title = title,
+             beginMillis = startMillis,
+             endMillis = _durationMinutes.value?.let { startMillis + it * 60_000L },
+             location = _location.value,
+         )
+ 
+         val outcome = launcher.launch(event)
+         when (outcome) {
+             is com.autocalendar.calendar.CalendarLaunchOutcome.Success -> {
+                 onEventSaved(event)
+                 clear()
+             }
+             is com.autocalendar.calendar.CalendarLaunchOutcome.Failure -> {
+-                _error.value = outcome.reason.name
++                _error.value = outcome.reason.userMessage()
+             }
+         }
+     }
+ 
+     fun onCancel() {
+         clear()
+     }
+ 
+     private fun clear() {
+         _title.value = null
+diff --git a/app/src/main/java/com/autocalendar/ui/history/HistoryScreen.kt b/app/src/main/java/com/autocalendar/ui/history/HistoryScreen.kt
+index f0d6e84..8977ecc 100644
+--- a/app/src/main/java/com/autocalendar/ui/history/HistoryScreen.kt
++++ b/app/src/main/java/com/autocalendar/ui/history/HistoryScreen.kt
+@@ -7,36 +7,37 @@ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.items
+ import androidx.compose.material3.HorizontalDivider
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.collectAsState
+ import androidx.compose.runtime.getValue
++import androidx.compose.runtime.remember
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.unit.dp
+ import com.autocalendar.data.ParsedMeeting
+ import java.time.Instant
+ import java.time.ZoneId
+ import java.time.format.DateTimeFormatter
+ 
+ private val displayFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm")
+ 
+ @Composable
+ fun HistoryScreen(
+     viewModel: HistoryViewModel,
+     onBack: () -> Unit,
+ ) {
+     val items by viewModel.items.collectAsState()
+-    val zone = ZoneId.systemDefault()
++    val zone = remember { ZoneId.systemDefault() }
+ 
+     Column(Modifier.fillMaxSize()) {
+         Text(
+             "History",
+             style = MaterialTheme.typography.titleLarge,
+             modifier = Modifier.padding(16.dp),
+         )
+         if (items.isEmpty()) {
+             Text(
+                 "No saved meetings yet.",
+diff --git a/app/src/main/java/com/autocalendar/ui/main/MainViewModel.kt b/app/src/main/java/com/autocalendar/ui/main/MainViewModel.kt
+index 381dc16..1d4d32a 100644
+--- a/app/src/main/java/com/autocalendar/ui/main/MainViewModel.kt
++++ b/app/src/main/java/com/autocalendar/ui/main/MainViewModel.kt
+@@ -1,19 +1,20 @@
+ package com.autocalendar.ui.main
+ 
+ import androidx.lifecycle.ViewModel
+ import androidx.lifecycle.viewModelScope
+ import com.autocalendar.domain.MeetingDraft
+ import com.autocalendar.domain.ParseFailureReason
+ import com.autocalendar.domain.ParseRequest
+ import com.autocalendar.domain.ParseResult
+ import com.autocalendar.parser.MeetingParser
++import com.autocalendar.ui.userMessage
+ import java.time.LocalDate
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.flow.MutableStateFlow
+ import kotlinx.coroutines.flow.StateFlow
+ import kotlinx.coroutines.launch
+ 
+ typealias TextValidator = (String) -> ParseResult.Failure?
+ 
+ class MainViewModel(
+     private val parser: MeetingParser,
+@@ -37,32 +38,32 @@ class MainViewModel(
+         _text.value = value
+         clearError()
+     }
+ 
+     fun parse() {
+         if (_isLoading.value) return
+ 
+         val rawText = _text.value
+         val failure = validator(rawText)
+         if (failure != null) {
+-            _error.value = failure.reason.name
++            _error.value = failure.reason.userMessage()
+             return
+         }
+ 
+         _isLoading.value = true
+         clearError()
+ 
+         _scope.launch {
+             val request = ParseRequest(rawText, LocalDate.now())
+             val result = parser.parse(request)
+             _isLoading.value = false
+             when (result) {
+                 is ParseResult.Success -> onDraftReady(result.meeting, rawText)
+-                is ParseResult.Failure -> _error.value = result.reason.name
++                is ParseResult.Failure -> _error.value = result.reason.userMessage()
+             }
+         }
+     }
+ 
+     fun clearError() {
+         _error.value = null
+     }
+ }
+\ No newline at end of file
+diff --git a/app/src/test/java/com/autocalendar/calendar/CalendarLauncherTest.kt b/app/src/test/java/com/autocalendar/calendar/CalendarLauncherTest.kt
+index 1cf5c45..8e72afe 100644
+--- a/app/src/test/java/com/autocalendar/calendar/CalendarLauncherTest.kt
++++ b/app/src/test/java/com/autocalendar/calendar/CalendarLauncherTest.kt
+@@ -20,21 +20,21 @@ class CalendarLauncherTest {
+         val event = EventToSave(
+             title = "Discuss mockup",
+             beginMillis = 1_790_337_600_000L,
+             endMillis = 1_790_337_600_000L + 30 * 60_000L,
+             location = "Starbucks",
+         )
+         val intent = CalendarIntentBuilder.build(event)
+         
+         assertEquals(Intent.ACTION_INSERT, intent.action)
+         assertEquals("content://com.android.calendar/events", intent.data.toString())
+-        assertEquals("Discuss mockup", intent.getStringExtra(Intent.EXTRA_TITLE))
++        assertEquals("Discuss mockup", intent.getStringExtra(CalendarContract.Events.TITLE))
+         assertEquals(1_790_337_600_000L, intent.getLongExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, -1))
+         assertEquals(1_790_337_600_000L + 30 * 60_000L, intent.getLongExtra(CalendarContract.EXTRA_EVENT_END_TIME, -1))
+         assertEquals("Starbucks", intent.getStringExtra("eventLocation"))
+     }
+ 
+     @Test
+     fun `builds intent without end time when null`() {
+         val event = EventToSave(
+             title = "Call",
+             beginMillis = 1_790_337_600_000L,
+diff --git a/app/src/test/java/com/autocalendar/parser/PlainDetectedMeetingAdapterTest.kt b/app/src/test/java/com/autocalendar/parser/PlainDetectedMeetingAdapterTest.kt
+index ccd3109..4b03a67 100644
+--- a/app/src/test/java/com/autocalendar/parser/PlainDetectedMeetingAdapterTest.kt
++++ b/app/src/test/java/com/autocalendar/parser/PlainDetectedMeetingAdapterTest.kt
+@@ -24,15 +24,50 @@ class PlainDetectedMeetingAdapterTest {
+     @Test
+     fun `parses a fenced json response`() {
+         val detected = PlainDetectedMeetingAdapter.fromJson(
+             """```json {"title":"Call","date":"2026-09-25","time":"19:00","durationMinutes":null,"location":null} ```""",
+         )
+         assertEquals("Call", detected?.title)
+         assertNull(detected?.durationMinutes)
+         assertNull(detected?.location)
+     }
+ 
++    @Test
++    fun `parses json preceded by prose`() {
++        val detected = PlainDetectedMeetingAdapter.fromJson(
++            "Here is the extracted meeting:\n{\"title\":\"Design review\",\"date\":\"2026-10-01\",\"time\":\"09:30\",\"durationMinutes\":45,\"location\":\"Room 2\"}",
++        )
++        assertEquals("Design review", detected?.title)
++        assertEquals("2026-10-01", detected?.date)
++        assertEquals("09:30", detected?.time)
++        assertEquals(45, detected?.durationMinutes)
++        assertEquals("Room 2", detected?.location)
++    }
++
++    @Test
++    fun `parses an uppercase json fence`() {
++        val detected = PlainDetectedMeetingAdapter.fromJson(
++            """```JSON {"title":"Sprint planning","date":"2026-10-02","time":"10:00","durationMinutes":60,"location":null}```""",
++        )
++        assertEquals("Sprint planning", detected?.title)
++        assertEquals("2026-10-02", detected?.date)
++        assertEquals(60, detected?.durationMinutes)
++        assertNull(detected?.location)
++    }
++
++    @Test
++    fun `plain object input parses unchanged`() {
++        val detected = PlainDetectedMeetingAdapter.fromJson(
++            """{"title":"1:1","date":"2026-09-30","time":"11:00","durationMinutes":25,"location":"HQ"}""",
++        )
++        assertEquals("1:1", detected?.title)
++        assertEquals("2026-09-30", detected?.date)
++        assertEquals("11:00", detected?.time)
++        assertEquals(25, detected?.durationMinutes)
++        assertEquals("HQ", detected?.location)
++    }
++
+     @Test
+     fun `garbage returns null`() {
+         assertNull(PlainDetectedMeetingAdapter.fromJson("not json at all"))
+     }
+ }
+\ No newline at end of file
+diff --git a/app/src/test/java/com/autocalendar/ui/confirm/ConfirmViewModelTest.kt b/app/src/test/java/com/autocalendar/ui/confirm/ConfirmViewModelTest.kt
+index d1efecd..18f88f8 100644
+--- a/app/src/test/java/com/autocalendar/ui/confirm/ConfirmViewModelTest.kt
++++ b/app/src/test/java/com/autocalendar/ui/confirm/ConfirmViewModelTest.kt
+@@ -1,39 +1,26 @@
+ package com.autocalendar.ui.confirm
+ 
+ import com.autocalendar.calendar.CalendarLaunchOutcome
+ import com.autocalendar.calendar.CalendarLauncher
+-import com.autocalendar.calendar.EventToSave
+ import com.autocalendar.domain.MeetingDraft
+-import com.autocalendar.domain.ParseResult
+-import com.autocalendar.parser.MeetingParser
+-import kotlinx.coroutines.CompletableDeferred
++import com.autocalendar.ui.userMessage
+ import kotlinx.coroutines.test.runTest
+ import kotlinx.coroutines.test.advanceUntilIdle
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertNotNull
+ import org.junit.Assert.assertNull
+ import org.junit.Test
+ import java.time.LocalDateTime
+ 
+ class ConfirmViewModelTest {
+ 
+-    private class FakeParser(
+-        private val result: ParseResult,
+-        private val gate: CompletableDeferred<Unit>? = null,
+-    ) : MeetingParser {
+-        override suspend fun parse(request: com.autocalendar.domain.ParseRequest): ParseResult {
+-            gate?.await()
+-            return result
+-        }
+-    }
+-
+     private class FakeLauncher(
+         private val outcome: CalendarLaunchOutcome,
+     ) : CalendarLauncher {
+         var lastEvent: com.autocalendar.calendar.EventToSave? = null
+         override fun launch(event: com.autocalendar.calendar.EventToSave): CalendarLaunchOutcome {
+             lastEvent = event
+             return outcome
+         }
+     }
+ 
+@@ -73,47 +60,64 @@ class ConfirmViewModelTest {
+         advanceUntilIdle()
+ 
+         assertEquals("Discuss mockup", launcher.lastEvent?.title)
+         assertEquals("Starbucks", launcher.lastEvent?.location)
+         assertNotNull(launcher.lastEvent?.beginMillis)
+         assertEquals(30 * 60_000L, launcher.lastEvent?.endMillis?.let { it - (launcher.lastEvent?.beginMillis ?: 0L) } ?: 30 * 60_000L)
+     }
+ 
+     @Test
+     fun `create event saves to history on success`() = runTest {
+-        // This test would require the ParsedMeetingStore integration
+-        // For now, we verify the launcher is called
++        val launcher = FakeLauncher(CalendarLaunchOutcome.Success(0))
++        var savedEvent: com.autocalendar.calendar.EventToSave? = null
++        val vm = ConfirmViewModel(launcher, { savedEvent = it }, this)
++
++        vm.onDraftReady(
++            MeetingDraft("Discuss mockup", LocalDateTime.of(2026, 9, 25, 15, 0), 30, "Starbucks"),
++            "raw text",
++        )
++        val expectedBegin = vm.startMillis.value
++
++        vm.onCreateClick()
++        advanceUntilIdle()
++
++        assertNotNull(savedEvent)
++        val saved = savedEvent!!
++        assertEquals("Discuss mockup", saved.title)
++        assertEquals(expectedBegin, saved.beginMillis)
++        assertEquals((expectedBegin ?: 0L) + 30 * 60_000L, requireNotNull(saved.endMillis))
++        assertEquals("Starbucks", saved.location)
+     }
+ 
+     @Test
+     fun `calendar missing shows error`() = runTest {
+         val draft = MeetingDraft(
+             title = "Test",
+             startDateTime = LocalDateTime.now().plusDays(1),
+             durationMinutes = 60,
+             location = null,
+         )
+         val launcher = FakeLauncher(CalendarLaunchOutcome.Failure(com.autocalendar.calendar.LaunchFailureReason.NO_CALENDAR_APP))
+         val vm = ConfirmViewModel(launcher, {})
+ 
+         vm.onDraftReady(draft, "raw")
+         vm.onCreateClick()
+         advanceUntilIdle()
+ 
+-        assertEquals(com.autocalendar.calendar.LaunchFailureReason.NO_CALENDAR_APP.name, vm.error.value)
++        assertEquals(com.autocalendar.calendar.LaunchFailureReason.NO_CALENDAR_APP.userMessage(), vm.error.value)
+     }
+ 
+     @Test
+     fun `cancel clears state`() = runTest {
+         val draft = MeetingDraft("Test", LocalDateTime.now(), 30, null)
+         val launcher = FakeLauncher(CalendarLaunchOutcome.Success(0))
+         val vm = ConfirmViewModel(launcher, {})
+ 
+         vm.onDraftReady(draft, "raw")
+         vm.onCancel()
+ 
+         assertNull(vm.title.value)
+         assertNull(vm.location.value)
+         assertNull(vm.startMillis.value)
+         assertNull(vm.durationMinutes.value)
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/test/java/com/autocalendar/ui/main/MainViewModelTest.kt b/app/src/test/java/com/autocalendar/ui/main/MainViewModelTest.kt
+index 22f67c2..9078524 100644
+--- a/app/src/test/java/com/autocalendar/ui/main/MainViewModelTest.kt
++++ b/app/src/test/java/com/autocalendar/ui/main/MainViewModelTest.kt
+@@ -1,18 +1,19 @@
+ package com.autocalendar.ui.main
+ 
+ import com.autocalendar.domain.MeetingDraft
+ import com.autocalendar.domain.ParseFailureReason
+ import com.autocalendar.domain.ParseRequest
+ import com.autocalendar.domain.ParseResult
+ import com.autocalendar.parser.MeetingParser
+ import com.autocalendar.parser.MeetingTextValidator
++import com.autocalendar.ui.userMessage
+ import kotlinx.coroutines.CompletableDeferred
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.test.TestScope
+ import kotlinx.coroutines.test.runTest
+ import kotlinx.coroutines.test.advanceUntilIdle
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertNull
+ import org.junit.Test
+ import java.time.LocalDateTime
+ 
+@@ -59,34 +60,34 @@ class MainViewModelTest {
+     @Test
+     fun `empty text is rejected without calling parser`() = runTest {
+         val parser = FakeParser(ParseResult.Failure(ParseFailureReason.TOO_SHORT_TEXT))
+         val vm = MainViewModel(parser, MeetingTextValidator::validate, { _, _ -> }, this)
+ 
+         vm.onTextChange("")
+         vm.parse()
+         advanceUntilIdle()
+ 
+         assertEquals(0, parser.calls)
+-        assertEquals(ParseFailureReason.EMPTY_TEXT.name, vm.error.value)
++        assertEquals(ParseFailureReason.EMPTY_TEXT.userMessage(), vm.error.value)
+     }
+ 
+     @Test
+     fun `no-meeting short text is rejected`() = runTest {
+         val parser = FakeParser(ParseResult.Failure(ParseFailureReason.TOO_SHORT_TEXT))
+         val vm = MainViewModel(parser, MeetingTextValidator::validate, { _, _ -> }, this)
+ 
+         vm.onTextChange("ok")
+         vm.parse()
+         advanceUntilIdle()
+ 
+         assertEquals(0, parser.calls)
+-        assertEquals(ParseFailureReason.TOO_SHORT_TEXT.name, vm.error.value)
++        assertEquals(ParseFailureReason.TOO_SHORT_TEXT.userMessage(), vm.error.value)
+     }
+ 
+     @Test
+     fun `second parse while in flight is ignored`() = runTest {
+         val gate = CompletableDeferred<Unit>()
+         val parser = FakeParser(ParseResult.Failure(ParseFailureReason.QUOTA_EXCEEDED), gate)
+         val vm = MainViewModel(parser, { null }, { _, _ -> }, this)
+ 
+         vm.onTextChange("Let's meet on Thursday at 3pm to discuss the mockup.")
+         vm.parse()

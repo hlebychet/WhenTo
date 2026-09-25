@@ -1,0 +1,85 @@
+# Review package: 59c5f09..aad458d
+
+## Commits
+aad458d fix: harden confirm navigation against recreation and back
+
+## Files changed
+ app/src/main/java/com/autocalendar/ui/AppNav.kt | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/app/src/main/java/com/autocalendar/ui/AppNav.kt b/app/src/main/java/com/autocalendar/ui/AppNav.kt
+index 437a76e..a396c41 100644
+--- a/app/src/main/java/com/autocalendar/ui/AppNav.kt
++++ b/app/src/main/java/com/autocalendar/ui/AppNav.kt
+@@ -1,12 +1,13 @@
+ package com.autocalendar.ui
+ 
++import androidx.activity.compose.BackHandler
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.collectAsState
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.remember
+ import androidx.navigation.compose.NavHost
+ import androidx.navigation.compose.composable
+ import androidx.navigation.compose.rememberNavController
+ import com.autocalendar.AppContainer
+ import com.autocalendar.ConfirmRequest
+@@ -35,21 +36,21 @@ fun AppNav(
+     pendingSharedText: MutableStateFlow<String?>,
+     confirmRequest: MutableStateFlow<ConfirmRequest?>,
+     createMain: () -> MainViewModel,
+     createConfirm: (ConfirmRequest) -> ConfirmViewModel,
+     createHistory: () -> HistoryViewModel,
+ ) {
+     val nav = rememberNavController()
+     val request by confirmRequest.collectAsState()
+ 
+     LaunchedEffect(request) {
+-        if (request != null) {
++        if (request != null && nav.currentDestination?.route != Routes.CONFIRM) {
+             nav.navigate(Routes.CONFIRM)
+         }
+     }
+ 
+     NavHost(navController = nav, startDestination = Routes.MAIN) {
+         composable(Routes.MAIN) {
+             val viewModel = remember { createMain() }
+             val pending by pendingSharedText.collectAsState()
+             LaunchedEffect(pending) {
+                 val shared = pending
+@@ -60,27 +61,33 @@ fun AppNav(
+             }
+             MainScreen(
+                 viewModel = viewModel,
+                 onOpenHistory = { nav.navigate(Routes.HISTORY) },
+             )
+         }
+         composable(Routes.CONFIRM) {
+             val current = request
+             if (current != null) {
+                 val viewModel = remember(current) { createConfirm(current) }
++                BackHandler {
++                    confirmRequest.value = null
++                    nav.popBackStack()
++                }
+                 ConfirmScreen(
+                     viewModel = viewModel,
+                     onCancel = {
+                         confirmRequest.value = null
+                         nav.popBackStack()
+                     },
+                 )
++            } else {
++                LaunchedEffect(Unit) { nav.popBackStack() }
+             }
+         }
+         composable(Routes.HISTORY) {
+             val viewModel = remember { createHistory() }
+             HistoryScreen(
+                 viewModel = viewModel,
+                 onBack = { nav.popBackStack() },
+             )
+         }
+     }

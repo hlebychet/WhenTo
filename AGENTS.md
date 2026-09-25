@@ -2,8 +2,8 @@
 
 ## Repo layout
 
-- `main` checkout holds only docs (`docs/superpowers/specs/…-mvp-design.md`, `docs/superpowers/plans/…-mvp.md`). The app code is **not** on `main`.
-- All implementation lives in the worktree `.worktrees/autocalendar-mvp` (branch `feat/autocalendar-mvp`). Work there, never on `main`.
+- `main` holds the whole project: the Android app under `app/`, build files at the root, and docs under `docs/` (`docs/superpowers/specs/…-mvp-design.md`, `docs/superpowers/plans/…-mvp.md`, `docs/verification-notes.md`, `docs/superpowers/sdd/…` — the SDD execution archive).
+- The `feat/autocalendar-mvp` branch was merged into `main` on 2026-09-25 and its worktree removed. Future feature work uses fresh worktrees via superpowers:using-git-worktrees — never commit directly on `main`.
 - `.worktrees/`, `.superpowers/`, `local.properties` are git-ignored.
 
 ## Roles and decisions
@@ -14,10 +14,9 @@
 
 ## Git workflow
 
-- `main` = docs/stable; **all code lives on the `feat/autocalendar-mvp` branch in the worktree `.worktrees/autocalendar-mvp`**. Never commit app code to `main` directly.
+- `main` = stable. All feature work happens on a feature branch in a worktree (see Repo layout), integrated back via superpowers:finishing-a-development-branch.
 - **No git remote is configured** — don't push, and don't create a remote without asking.
 - One commit per plan task, using the exact `git add`+`git commit` command the plan prescribes for that step. Never batch multiple tasks into one commit; never skip a task's commit.
-- At the end, integrate the feature branch into `main` via superpowers:finishing-a-development-branch (after the final whole-branch review is clean).
 - Keep `AGENTS.md` content identical on both branches (commit on one, fast-forward the other).
 
 ## Build environment (Windows, pwsh)
