@@ -29,8 +29,9 @@ where you review and adjust before saving.
 ## Requirements
 
 - Android 8.0 or newer.
-- A phone with Gemini Nano for the on-device AI (currently the Pixel 10
-  series). The first run may need a one-time model download.
+- A phone with Gemini Nano available through AICore for the on-device AI
+  (verified on the Pixel 10 series). The first run may need a one-time model
+  download.
 
 ## Install
 
@@ -73,8 +74,10 @@ Releases page:
 событием — поправьте при необходимости и нажмите **Сохранить**. История
 созданных событий хранится в приложении.
 
-**Что нужно.** Android 8.0+, телефон с Gemini Nano (сейчас это Pixel 10).
-Первый запуск может потребовать однократной загрузки модели.
+**Что нужно.** Android 8.0+, телефон с доступом к Gemini Nano через AICore
+(проверено на Pixel 10 — на части других устройств модель может не
+отдаваться приложениям). Первый запуск может потребовать однократной
+загрузки модели.
 
 **Ограничения.** Надёжнее всего распознаются явные время и фразы вида
 «в следующий четверг». Локация в этой версии в календарь не передаётся.
